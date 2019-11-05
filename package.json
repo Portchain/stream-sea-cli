@@ -1,0 +1,19 @@
+{
+  "name": "stream-sea-cli",
+  "version": "1.0.0",
+  "description": "CLI for stream-sea",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Portchain/stream-sea-cli.git"
+  },
+  "author": "",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Portchain/stream-sea-cli/issues"
+  },
+  "homepage": "https://github.com/Portchain/stream-sea-cli#readme"
+}
