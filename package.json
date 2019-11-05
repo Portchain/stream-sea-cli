@@ -4,7 +4,15 @@
   "description": "CLI for stream-sea",
   "main": "src/index.ts",
   "scripts": {
-    "test": "jest"
+    "dev": "ts-node src/index.ts",
+    "test": "jest --runInBand --forceExit --detectOpenHandles --verbose false",
+    "quicktest": "jest",
+    "build": "tsc",
+    "start": "NODE_ENV=production node bin/index.js",
+    "clean": "rm -rf bin",
+    "deepclean": "rm -rf bin node_modules package-lock.json",
+    "codegen": "echo TODO: codegen",
+    "precommit": "tslint"
   },
   "repository": {
     "type": "git",
@@ -15,5 +23,18 @@
   "bugs": {
     "url": "https://github.com/Portchain/stream-sea-cli/issues"
   },
-  "homepage": "https://github.com/Portchain/stream-sea-cli#readme"
+  "homepage": "https://github.com/Portchain/stream-sea-cli#readme",
+  "devDependencies": {
+    "@types/node": "^12.12.5",
+    "jest": "^24.9.0",
+    "nodemon": "^1.19.4",
+    "ts-node": "^8.4.1",
+    "tslint": "^6.0.0-beta0",
+    "typescript": "^3.6.4"
+  },
+  "dependencies": {
+    "@types/request-promise-native": "^1.0.17",
+    "request-promise-native": "^1.0.8",
+    "ws": "^7.2.0"
+  }
 }
