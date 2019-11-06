@@ -43,19 +43,24 @@ yargs.scriptName("stream-sea")
     default: 443,
     describe: 'the remote server port (defaults to 443)'
   })
-  .option('stream', {
-    alias: 's',
-    type: 'string',
-    describe: 'the name of the stream'
-  })
-  .command('define', '(re)define a stream data schema', (yargs) => {
-      
+  .command('define', '(re)define a stream data schema', 
+    (yargs) => {
+      yargs.option('stream', {
+        alias: 's',
+        type: 'string',
+        describe: 'the name of the stream'
+      }).demandOption(['description'])
     }, async (args:any) => {
       return await streamSea.defineStream(args)
     }
   )
   .command('publish', 'Publish messages to a stream', 
     (yargs) => {
+      yargs.option('stream', {
+        alias: 's',
+        type: 'string',
+        describe: 'the name of the stream'
+      }).demandOption(['description'])
     }, 
     async (args:any) => {
       await new Promise((resolve, reject) => {
@@ -75,9 +80,60 @@ yargs.scriptName("stream-sea")
       console.log('Data has been published to the remote server')
     }
   )
-  .command('subscribe', 'Subscribe to a stream and print outputs to stdout', (yargs) => {
+  .command('subscribe', 'Subscribe to a stream and print outputs to stdout', 
+    (yargs) => {
+      yargs.option('stream', {
+        alias: 's',
+        type: 'string',
+        describe: 'the name of the stream'
+      }).demandOption(['description'])
     }, streamSea.subscribe
   )
-  .demandOption(['appId', 'appSecret', 'remoteServerHost', 'stream'])
+  .command('create-client', 'Create a new client', (yargs) => {
+      yargs
+        .option('description', {
+          alias: 'd',
+          type: 'string',
+          describe: 'the name or description of the client'
+        })
+        .demandOption(['description'])
+    }, async (args:any) => {
+      const newClient = await streamSea.createClient(args)
+      console.log('APP Identifier:', newClient.id)
+      console.log('APP Secret:', newClient.secret)
+    }
+  )
+  .command('delete-client', 'Delete an existing', (yargs) => {
+      yargs
+        .option('clientId', {
+          alias: 'c',
+          type: 'string',
+          describe: 'the id of the client to delete'
+        })
+        .demandOption(['clientId'])
+    }, async (args:any) => {
+      const deletedClient = await streamSea.deleteClient(args)
+      if(deletedClient) {
+        console.log(`Client ${deletedClient.id} deleted`)
+      } else {
+        console.log(`ERROR: could not find client with id ${args.clientId}`)
+      }
+    }
+  )
+  .command('rotate-client-secret', 'Rotate a client\'s secret', (yargs) => {
+      yargs
+        .option('clientId', {
+          alias: 'c',
+          type: 'string',
+          describe: 'the id of the client to delete'
+        })
+        .demandOption(['clientId'])
+    }, async (args:any) => {
+      const updatedClient = await streamSea.rotateClientSecret(args)
+      console.log('Client identifier:', updatedClient.id)
+      console.log('Client secret:', updatedClient.secret)
+    }
+  )
+  .demandOption(['appId', 'appSecret', 'remoteServerHost'])
   .help()
   .argv
