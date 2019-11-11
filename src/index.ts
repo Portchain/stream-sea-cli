@@ -22,6 +22,10 @@ const clearRunningTimeout = () => {
   }
 }
 
+const errorHandler = (err:Error) => {
+  console.log(err.message)
+}
+
 yargs.scriptName("stream-sea")
   .usage('$0 <cmd> [args]')
   .option('appId', {
@@ -50,8 +54,8 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the name of the stream'
       }).demandOption(['description'])
-    }, async (args:any) => {
-      return await streamSea.defineStream(args)
+    }, (args:any) => {
+      streamSea.defineStream(args).catch(errorHandler)
     }
   )
   .command('publish', 'Publish messages to a stream', 
@@ -60,24 +64,30 @@ yargs.scriptName("stream-sea")
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).demandOption(['description'])
+      }).demandOption(['stream'])
     }, 
-    async (args:any) => {
-      await new Promise((resolve, reject) => {
-        let data = ''
+    (args:any) => {
+      let data = ''
+      if(args.data) {
+        data = args.data
+        streamSea.publish(args).then(() => {
+          console.log('Data has been published to the remote server')
+        }).catch(errorHandler)
+        return;
+      }
+      postponeTimeout()
+      process.stdin.on('data', (buff:Buffer) => {
         postponeTimeout()
-        process.stdin.on('data', (buff:Buffer) => {
-          postponeTimeout()
-          data += buff.toString('utf8')
-        })
-        process.stdin.on('end', (buff:Buffer) => {
-          clearRunningTimeout()
-          args.payload = JSON.parse(data)
-          streamSea.publish(args).then(resolve).catch(reject)
-        })
-        process.stdin.on('error', reject)
+        data += buff.toString('utf8')
       })
-      console.log('Data has been published to the remote server')
+      process.stdin.on('end', (buff:Buffer) => {
+        clearRunningTimeout()
+        args.payload = JSON.parse(data)
+        streamSea.publish(args).then(() => {
+          console.log('Data has been published to the remote server')
+        }).catch(errorHandler)
+      })
+      process.stdin.on('error', errorHandler)
     }
   )
   .command('subscribe', 'Subscribe to a stream and print outputs to stdout', 
@@ -86,7 +96,7 @@ yargs.scriptName("stream-sea")
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).demandOption(['description'])
+      }).demandOption(['stream'])
     }, streamSea.subscribe
   )
   .command('create-client', 'Create a new client', (yargs) => {
@@ -97,10 +107,13 @@ yargs.scriptName("stream-sea")
           describe: 'the name or description of the client'
         })
         .demandOption(['description'])
-    }, async (args:any) => {
-      const newClient = await streamSea.createClient(args)
-      console.log('APP Identifier:', newClient.id)
-      console.log('APP Secret:', newClient.secret)
+    }, (args:any) => {
+      streamSea.createClient(args)
+        .then((client) => {
+          console.log('APP Identifier:', client.id)
+          console.log('APP Secret:', client.secret)
+        })
+        .catch(errorHandler)
     }
   )
   .command('delete-client', 'Delete an existing', (yargs) => {
@@ -111,13 +124,16 @@ yargs.scriptName("stream-sea")
           describe: 'the id of the client to delete'
         })
         .demandOption(['clientId'])
-    }, async (args:any) => {
-      const deletedClient = await streamSea.deleteClient(args)
-      if(deletedClient) {
-        console.log(`Client ${deletedClient.id} deleted`)
-      } else {
-        console.log(`ERROR: could not find client with id ${args.clientId}`)
-      }
+    }, (args:any) => {
+      streamSea.deleteClient(args)
+        .then(deletedClient => {
+          if(deletedClient) {
+            console.log(`Client ${deletedClient.id} deleted`)
+          } else {
+            console.log(`ERROR: could not find client with id ${args.clientId}`)
+          }
+        })
+        .catch(errorHandler)
     }
   )
   .command('rotate-client-secret', 'Rotate a client\'s secret', (yargs) => {
@@ -129,11 +145,13 @@ yargs.scriptName("stream-sea")
         })
         .demandOption(['clientId'])
     }, async (args:any) => {
-      const updatedClient = await streamSea.rotateClientSecret(args)
-      console.log('Client identifier:', updatedClient.id)
-      console.log('Client secret:', updatedClient.secret)
+      streamSea.rotateClientSecret(args)
+        .then((client) => {
+          console.log('APP Identifier:', client.id)
+          console.log('APP Secret:', client.secret)
+        })
+        .catch(errorHandler)
     }
   )
   .demandOption(['appId', 'appSecret', 'remoteServerHost'])
-  .help()
   .argv
