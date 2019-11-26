@@ -1,6 +1,7 @@
 
 /* tslint:disable */
 import request from 'request-promise-native'
+import { Stream, Remote, SchemaDefinition } from './types';
 
 const WebSocket = require('ws');
 /* tslint:enable */
@@ -14,29 +15,6 @@ const WebSocket = require('ws');
 //   ));
 
 
-interface Remote {
-  appId: string;
-  appSecret: string;
-  remoteServerHost: string;
-  remoteServerPort: string;
-}
-interface Stream {
-  stream: string;
-}
-
-interface SchemaFieldTypeDefinition {
-
-}
-
-interface SchemaFieldDefinition {
-  name: string;
-  type: SchemaFieldTypeDefinition
-}
-
-interface SchemaDefinition {
-  version:string;
-  fields: SchemaFieldDefinition[];
-}
 
 export const subscribe = (args:Remote & Stream & {schema: SchemaDefinition}) => {
 
@@ -77,6 +55,19 @@ export const defineStream = async(args:Remote & Stream & SchemaDefinition) => {
     gzip: true,
     json: true,
     body: {version: args.version, fields: args.fields}
+  })
+}
+
+export const describeStream = async(args:Remote & Stream & SchemaDefinition) => {
+  return await request({
+    url: `http://${args.remoteServerHost}:${args.remoteServerPort}/api/v1/streams/${args.stream}/schema`,
+    headers: {
+      'content-type': 'application/json',
+      'authorization': 'Basic ' + Buffer.from(`${args.appId}:${args.appSecret}`).toString('base64')
+    },
+    method: 'GET',
+    gzip: true,
+    json: true
   })
 }
 

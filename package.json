@@ -11,7 +11,6 @@
     "start": "NODE_ENV=production node bin/index.js",
     "clean": "rm -rf bin",
     "deepclean": "rm -rf bin node_modules package-lock.json",
-    "codegen": "echo TODO: codegen",
     "precommit": "tslint"
   },
   "repository": {
@@ -25,9 +24,11 @@
   },
   "homepage": "https://github.com/Portchain/stream-sea-cli#readme",
   "devDependencies": {
+    "@types/jest": "^24.0.17",
     "@types/node": "^12.12.5",
     "jest": "^24.9.0",
     "nodemon": "^1.19.4",
+    "ts-jest": "^24.0.2",
     "ts-node": "^8.4.1",
     "tslint": "^6.0.0-beta0",
     "typescript": "^3.6.4"

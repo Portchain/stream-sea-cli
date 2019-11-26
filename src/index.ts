@@ -3,6 +3,7 @@
 
 import yargs from 'yargs'
 import * as streamSea from './streamSea'
+import { loadInlinePayload, formatJSONSchema } from './payloadUtil';
 
 
 const INACTIVITY_TIMEOUT = 5000
@@ -26,6 +27,26 @@ const errorHandler = (err:Error) => {
   console.log(err.message)
 }
 
+let remoteServerHost = process.env.STREAM_SEA_HOST
+let remoteServerPort = process.env.STREAM_SEA_PORT || 443
+let remoteServerAppId = process.env.STREAM_SEA_APP_ID
+let remoteServerAppSecret = process.env.STREAM_SEA_APP_SECRET
+
+const requiredOptions = []
+if(!remoteServerAppId) {
+  requiredOptions.push('appId')
+}
+if(!remoteServerAppSecret) {
+  requiredOptions.push('appSecret')
+}
+if(!remoteServerHost) {
+  requiredOptions.push('remoteServerHost')
+}
+
+const addServerConfigToArgs = (args:any) => {
+  return {appId: remoteServerAppId, appSecret: remoteServerAppSecret, remoteServerHost, remoteServerPort, ...args}
+}
+
 yargs.scriptName("stream-sea")
   .usage('$0 <cmd> [args]')
   .option('appId', {
@@ -44,7 +65,6 @@ yargs.scriptName("stream-sea")
   .option('remoteServerPort', {
     alias: 'p',
     type: 'string',
-    default: 443,
     describe: 'the remote server port (defaults to 443)'
   })
   .command('define', '(re)define a stream data schema', 
@@ -53,9 +73,37 @@ yargs.scriptName("stream-sea")
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).demandOption(['description'])
+      }).option('schema', {
+        alias: 'm',
+        type: 'string',
+        describe: 'the definition of the schema. This should be a path to a JSON file or a JSON string.'
+      }).demandOption(['stream', 'schema'])
     }, (args:any) => {
-      streamSea.defineStream(args).catch(errorHandler)
+      // TODO support loading a definition from a file
+      args = addServerConfigToArgs(args)
+      const schema = formatJSONSchema(args.stream, loadInlinePayload(args.schema))
+      args = {...args, ...schema}
+      streamSea.defineStream(args)
+        .then((response) => {
+          console.log(JSON.stringify(response, null, 2))
+        })
+        .catch(errorHandler)
+    }
+  )
+  .command('describe', 'fetch the latest data schema for a stream', 
+    (yargs) => {
+      yargs.option('stream', {
+        alias: 's',
+        type: 'string',
+        describe: 'the name of the stream'
+      }).demandOption(['stream'])
+    }, (args:any) => {
+      args = addServerConfigToArgs(args)
+      streamSea.describeStream(args)
+        .then((schema) => {
+          console.log(JSON.stringify(schema, null, 2))
+        })
+        .catch(errorHandler)
     }
   )
   .command('publish', 'Publish messages to a stream', 
@@ -64,11 +112,16 @@ yargs.scriptName("stream-sea")
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
+      }).option('data', {
+        alias: 'd',
+        type: 'string',
+        describe: 'the path to a JSON file or the JSON payload to publish. You can also omit this parameter and send pipe data to the command through stdin'
       }).demandOption(['stream'])
     }, 
     (args:any) => {
       let data = ''
       if(args.data) {
+        args = addServerConfigToArgs(args)
         data = args.data
         streamSea.publish(args).then(() => {
           console.log('Data has been published to the remote server')
@@ -83,6 +136,7 @@ yargs.scriptName("stream-sea")
       process.stdin.on('end', (buff:Buffer) => {
         clearRunningTimeout()
         args.payload = JSON.parse(data)
+        args = addServerConfigToArgs(args)
         streamSea.publish(args).then(() => {
           console.log('Data has been published to the remote server')
         }).catch(errorHandler)
@@ -108,6 +162,7 @@ yargs.scriptName("stream-sea")
         })
         .demandOption(['description'])
     }, (args:any) => {
+      args = addServerConfigToArgs(args)
       streamSea.createClient(args)
         .then((client) => {
           console.log('APP Identifier:', client.id)
@@ -125,6 +180,7 @@ yargs.scriptName("stream-sea")
         })
         .demandOption(['clientId'])
     }, (args:any) => {
+      args = addServerConfigToArgs(args)
       streamSea.deleteClient(args)
         .then(deletedClient => {
           if(deletedClient) {
@@ -145,6 +201,7 @@ yargs.scriptName("stream-sea")
         })
         .demandOption(['clientId'])
     }, async (args:any) => {
+      args = addServerConfigToArgs(args)
       streamSea.rotateClientSecret(args)
         .then((client) => {
           console.log('APP Identifier:', client.id)
@@ -153,5 +210,6 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
-  .demandOption(['appId', 'appSecret', 'remoteServerHost'])
+  .demandOption(requiredOptions)
   .argv
+
