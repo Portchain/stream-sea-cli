@@ -121,8 +121,8 @@ yargs.scriptName("stream-sea")
     (args:any) => {
       let data = ''
       if(args.data) {
+        args.payload = loadInlinePayload(args.data)
         args = addServerConfigToArgs(args)
-        data = args.data
         streamSea.publish(args).then(() => {
           console.log('Data has been published to the remote server')
         }).catch(errorHandler)
