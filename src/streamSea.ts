@@ -33,6 +33,7 @@ class WSClient extends EventEmitter {
   private msgCnt = 0
   private ws:any
   private messagesCallbacks:Map<number, PromiseProxy|null> = new Map<number, PromiseProxy|null>()
+  private subscriptions:Map<string, EventEmitter> = new Map<string, EventEmitter>()
 
   constructor(args:WSClientArgs) {
     super()
@@ -50,19 +51,31 @@ class WSClient extends EventEmitter {
         if(!msg.id) {
           const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
           this.emit('error', errMessage)
-        } else if(this.messagesCallbacks.has(msg.id) && this.messagesCallbacks.get(msg.id) === null) {
-          const errMessage = `Server sent multiple response for a single request. Message: ${JSON.stringify(msg)}`
-          this.emit('error', errMessage)
-        } else if(this.messagesCallbacks.get(msg.id)) {
-          if(msg.success) {
-            this.messagesCallbacks.get(msg.id)!.resolve(msg.response)
+        } else if(msg.action === 'event') {
+          const subscriptionKey = msg.subscriptionKey
+          const eventEmitter = this.subscriptions.get(subscriptionKey)
+          if(eventEmitter) {
+            eventEmitter.emit('message', msg.payload)
           } else {
-            this.messagesCallbacks.get(msg.id)!.reject(msg.error)
+            const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
+            this.emit('error', errMessage)
           }
-          this.messagesCallbacks.set(msg.id, null)
         } else {
-          const errMessage = `Server sent a response but the message id could not be resolved to a request. Message: ${JSON.stringify(msg)}`
-          this.emit('error', errMessage)
+          if(this.messagesCallbacks.has(msg.id) && this.messagesCallbacks.get(msg.id) === null) {
+            const errMessage = `Server sent multiple response for a request that has already been processed. Message: ${JSON.stringify(msg)}`
+            this.emit('error', errMessage)
+          } else if(this.messagesCallbacks.get(msg.id)) {
+            const promiseProxy = this.messagesCallbacks.get(msg.id)!
+            if(msg.success) {
+              promiseProxy.resolve(msg.payload)
+            } else {
+              promiseProxy.reject(msg.error)
+            }
+            this.messagesCallbacks.set(msg.id, null)
+          } else {
+            const errMessage = `Server sent a response but the message id could not be resolved to a request. Message: ${JSON.stringify(msg)}`
+            this.emit('error', errMessage)
+          }
         }
 
       } catch(err) {
@@ -76,7 +89,7 @@ class WSClient extends EventEmitter {
     return ++this.msgCnt
   }
 
-  public async send(action:string, payload:any) {
+  public async send(action:string, payload:any):Promise<any> {
     // TODO: add message timeouts
     return new Promise((resolve, reject) => {
 
@@ -94,15 +107,21 @@ class WSClient extends EventEmitter {
     })
   }
   public async authenticate (username:string, password:string) {
-    const response = await this.send('authenticate', {
+    const response:any = await this.send('authenticate', {
       username, 
       password
     })
-    console.log('Auth response', response)
+    if(response && response.jailId) {
+      console.info('Authentication succeeded')
+    } else {
+      console.error('Authentication failed')
+    }
   }
 
-  public subscribe (streamName:string) {
+  public async subscribe (streamName:string) {
     const eventEmitter = new EventEmitter()
+    const subscriptionKey:string = await this.send('subscribe', streamName)
+    this.subscriptions.set(subscriptionKey, eventEmitter)
     return eventEmitter
   }
 }
