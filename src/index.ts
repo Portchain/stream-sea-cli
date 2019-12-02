@@ -151,9 +151,10 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the name of the stream'
       }).demandOption(['stream'])
-    }, (args:any) => {
-      args = addServerConfigToArgs(args)
-      streamSea.subscribe(args)
+    }, async (args:any) => {
+      args = addServerConfigToArgs(args);
+      console.log(args);
+      (await streamSea.subscribe(args))
         .on('message', (msg:any) => console.log(msg))
         .on('error', (err:any) => console.error(err))
         .on('close', () =>console.log('Connection closed'))

@@ -33,16 +33,21 @@ class WSClient extends EventEmitter {
   private msgCnt = 0
   private ws:any
   private messagesCallbacks:Map<number, PromiseProxy|null> = new Map<number, PromiseProxy|null>()
-  private subscriptions:Map<string, EventEmitter> = new Map<string, EventEmitter>()
+  private subscriptions:Map<number, EventEmitter> = new Map<number, EventEmitter>()
+  private readyCb:() => void
 
-  constructor(args:WSClientArgs) {
+  constructor(args:WSClientArgs, readyCb:() => void) {
     super()
-    this.ws = new WebSocket(`ws://${args.remoteServerHost}:${args.remoteServerPort}/api/v1/streams`);
+    const url = `ws://${args.remoteServerHost}:${args.remoteServerPort}/api/v1/streams`
+    this.readyCb = readyCb;
+    this.ws = new WebSocket(url);
+    
     this.ws.on('open', () => {
       console.log('socket opened');
       const authResponse = this.authenticate(args.appId, args.appSecret)
       console.log('authResponse', authResponse)
     });
+
     this.ws.on('message', (msgStr:string) => {
       // TODO: catch parse error
       try {
@@ -51,19 +56,20 @@ class WSClient extends EventEmitter {
         if(!msg.id) {
           const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
           this.emit('error', errMessage)
-        } else if(msg.action === 'event') {
-          const subscriptionKey = msg.subscriptionKey
-          const eventEmitter = this.subscriptions.get(subscriptionKey)
-          if(eventEmitter) {
-            eventEmitter.emit('message', msg.payload)
-          } else {
-            const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
-            this.emit('error', errMessage)
-          }
         } else {
           if(this.messagesCallbacks.has(msg.id) && this.messagesCallbacks.get(msg.id) === null) {
-            const errMessage = `Server sent multiple response for a request that has already been processed. Message: ${JSON.stringify(msg)}`
-            this.emit('error', errMessage)
+            if(msg.action === 'subscription') {
+              const eventEmitter = this.subscriptions.get(msg.id)
+              if(eventEmitter) {
+                eventEmitter.emit('message', msg.payload)
+              } else {
+                const errMessage = `Could not resolve subscription related event to an existing subscription ${JSON.stringify(msg)}`
+                this.emit('error', errMessage)
+              }
+            } else {
+              const errMessage = `Server sent multiple response for a request that has already been processed. Message: ${JSON.stringify(msg)}`
+              this.emit('error', errMessage)
+            }
           } else if(this.messagesCallbacks.get(msg.id)) {
             const promiseProxy = this.messagesCallbacks.get(msg.id)!
             if(msg.success) {
@@ -113,6 +119,12 @@ class WSClient extends EventEmitter {
     })
     if(response && response.jailId) {
       console.info('Authentication succeeded')
+      if(this.readyCb) {
+        const readyCb = this.readyCb
+        delete this.readyCb
+        readyCb()
+      }
+
     } else {
       console.error('Authentication failed')
     }
@@ -120,18 +132,20 @@ class WSClient extends EventEmitter {
 
   public async subscribe (streamName:string) {
     const eventEmitter = new EventEmitter()
-    const subscriptionKey:string = await this.send('subscribe', streamName)
+    const subscriptionKey = await this.send('subscribe', streamName)
+    console.log('SUBSCRIE KEY', subscriptionKey)
     this.subscriptions.set(subscriptionKey, eventEmitter)
     return eventEmitter
   }
 }
 
 
-export const subscribe = (args:Remote & Stream & {schema: SchemaDefinition}) => {
+export const subscribe = async (args:Remote & Stream & {schema: SchemaDefinition}) => {
   const eventEmitter = new EventEmitter()
   
-  let client = new WSClient(args)
-  client.subscribe(args.stream)
+  let client = new WSClient(args, async () => {
+    await client.subscribe(args.stream)
+  })
   
   return eventEmitter;
 
