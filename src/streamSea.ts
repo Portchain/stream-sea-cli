@@ -3,6 +3,7 @@
 import request from 'request-promise-native'
 import { Stream, Remote, SchemaDefinition } from './types';
 import {EventEmitter} from 'events'
+const logger = require('logacious')()
 
 const WebSocket = require('ws');
 /* tslint:enable */
@@ -42,35 +43,40 @@ class WSClient extends EventEmitter {
     this.readyCb = readyCb;
     this.ws = new WebSocket(url);
     
-    this.ws.on('open', () => {
-      console.log('socket opened');
-      const authResponse = this.authenticate(args.appId, args.appSecret)
-      console.log('authResponse', authResponse)
+    this.ws.on('open', async () => {
+      console.log('Connected to server');
+      await this.authenticate(args.appId, args.appSecret)
     });
 
     this.ws.on('message', (msgStr:string) => {
       // TODO: catch parse error
       try {
         const msg = JSON.parse(msgStr)
-        console.log('RCVD', msg)
+        console.log(JSON.stringify(msg, null, 2))
         if(!msg.id) {
           const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
+          logger.error(errMessage)
           this.emit('error', errMessage)
         } else {
           if(this.messagesCallbacks.has(msg.id) && this.messagesCallbacks.get(msg.id) === null) {
             if(msg.action === 'subscription') {
+              logger.info('Subscription related message')
               const eventEmitter = this.subscriptions.get(msg.id)
               if(eventEmitter) {
+                logger.info('Emitting message related to subscription', msg.id)
                 eventEmitter.emit('message', msg.payload)
               } else {
                 const errMessage = `Could not resolve subscription related event to an existing subscription ${JSON.stringify(msg)}`
+                logger.error(errMessage)
                 this.emit('error', errMessage)
               }
             } else {
               const errMessage = `Server sent multiple response for a request that has already been processed. Message: ${JSON.stringify(msg)}`
+              logger.error(errMessage)
               this.emit('error', errMessage)
             }
           } else if(this.messagesCallbacks.get(msg.id)) {
+
             const promiseProxy = this.messagesCallbacks.get(msg.id)!
             if(msg.success) {
               promiseProxy.resolve(msg.payload)
@@ -80,12 +86,13 @@ class WSClient extends EventEmitter {
             this.messagesCallbacks.set(msg.id, null)
           } else {
             const errMessage = `Server sent a response but the message id could not be resolved to a request. Message: ${JSON.stringify(msg)}`
+            logger.error(errMessage)
             this.emit('error', errMessage)
           }
         }
 
       } catch(err) {
-        console.error(err)
+        logger.error(err)
         this.emit('error', err)
       }
     })
@@ -131,11 +138,16 @@ class WSClient extends EventEmitter {
   }
 
   public async subscribe (streamName:string) {
+    logger.info(`Subscribing to stream ${streamName}`)
     const eventEmitter = new EventEmitter()
     const subscriptionKey = await this.send('subscribe', streamName)
-    console.log('SUBSCRIE KEY', subscriptionKey)
-    this.subscriptions.set(subscriptionKey, eventEmitter)
-    return eventEmitter
+    if(subscriptionKey) {
+      this.subscriptions.set(subscriptionKey, eventEmitter)
+      return eventEmitter
+    } else {
+      throw new Error('Failed to subscribe')
+    }
+    
   }
 }
 
@@ -144,7 +156,11 @@ export const subscribe = async (args:Remote & Stream & {schema: SchemaDefinition
   const eventEmitter = new EventEmitter()
   
   let client = new WSClient(args, async () => {
-    await client.subscribe(args.stream)
+    //TODO: return th right event emitter instead of manually piping 2 event emitters
+    const ee = await client.subscribe(args.stream)
+    ee.on('message', (d) => eventEmitter.emit('message', d))
+    ee.on('error', (d) => eventEmitter.emit('error', d))
+    ee.on('close', (d) => eventEmitter.emit('close', d))
   })
   
   return eventEmitter;

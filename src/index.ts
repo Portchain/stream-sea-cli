@@ -154,10 +154,12 @@ yargs.scriptName("stream-sea")
     }, async (args:any) => {
       args = addServerConfigToArgs(args);
       console.log(args);
-      (await streamSea.subscribe(args))
-        .on('message', (msg:any) => console.log(msg))
-        .on('error', (err:any) => console.error(err))
-        .on('close', () =>console.log('Connection closed'))
+      const subscription = await streamSea.subscribe(args)
+      subscription.on('message', (msg:any) => {
+        console.log(JSON.stringify(msg))
+      })
+      subscription.on('error', (err:any) => console.error(err))
+      subscription.on('close', () =>console.log('Connection closed'))
     }
   )
   .command('create-client', 'Create a new client', (yargs) => {

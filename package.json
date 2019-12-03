@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@types/request-promise-native": "^1.0.17",
+    "logacious": "^0.4.0",
     "request-promise-native": "^1.0.8",
     "ws": "^7.2.0",
     "yargs": "^15.0.2"
