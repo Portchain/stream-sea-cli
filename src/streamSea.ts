@@ -52,7 +52,6 @@ class WSClient extends EventEmitter {
       // TODO: catch parse error
       try {
         const msg = JSON.parse(msgStr)
-        console.log(JSON.stringify(msg, null, 2))
         if(!msg.id) {
           const errMessage = `Server sends a message without an id ${JSON.stringify(msg)}`
           logger.error(errMessage)
@@ -60,10 +59,10 @@ class WSClient extends EventEmitter {
         } else {
           if(this.messagesCallbacks.has(msg.id) && this.messagesCallbacks.get(msg.id) === null) {
             if(msg.action === 'subscription') {
-              logger.info('Subscription related message')
+              // logger.debug('Subscription related message')
               const eventEmitter = this.subscriptions.get(msg.id)
               if(eventEmitter) {
-                logger.info('Emitting message related to subscription', msg.id)
+                // logger.debug('Emitting message related to subscription', msg.id)
                 eventEmitter.emit('message', msg.payload)
               } else {
                 const errMessage = `Could not resolve subscription related event to an existing subscription ${JSON.stringify(msg)}`
