@@ -1,6 +1,6 @@
 
 import fs from 'fs'
-import { SchemaDefinition, SchemaField, FieldType } from './types'
+import { SchemaDefinition, SchemaField, FieldType } from 'stream-sea-client/dist/types'
 
 export const isPath = (path:string):boolean => /^(\.?\/|[\d?\w])/ig.test(path)
 export const isJSON = (json:string):boolean => /^(({.*})|(\[.*\]))$/sg.test(json)

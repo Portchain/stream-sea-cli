@@ -2,7 +2,7 @@
 //#!/usr/bin/env node
 
 import yargs from 'yargs'
-import * as streamSea from './streamSea'
+import * as streamSea from 'stream-sea-client'
 import { loadInlinePayload, formatJSONSchema } from './payloadUtil';
 
 
@@ -66,6 +66,11 @@ yargs.scriptName("stream-sea")
     alias: 'p',
     type: 'string',
     describe: 'the remote server port (defaults to 443)'
+  })
+  .option('secure', {
+    alias: 't',
+    type: 'boolean',
+    description: 'Use TLS'
   })
   .command('define', '(re)define a stream data schema', 
     (yargs) => {
