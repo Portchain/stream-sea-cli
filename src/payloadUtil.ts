@@ -51,7 +51,7 @@ export const parseUnstructuredSchema = (unstructuredSchema:any) => {
 
 }
 
-export const formatJSONSchema = (schemaName:string, unstructuredSchema:any) => {
+export const formatShortJSONSchema = (schemaName:string, unstructuredSchema:any) => {
   const schema:SchemaDefinition = {
     version: 1,
     name: schemaName,
@@ -61,4 +61,8 @@ export const formatJSONSchema = (schemaName:string, unstructuredSchema:any) => {
     schema.version = unstructuredSchema._version
   }
   return schema
+}
+
+export const formatLongJSONSchema = (schemaName:string, unstructuredSchema: any) => {
+  return unstructuredSchema as SchemaDefinition // TODO: validation
 }
