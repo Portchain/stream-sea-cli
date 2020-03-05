@@ -29,33 +29,33 @@ const errorHandler = (err:Error) => {
 
 let remoteServerHost = process.env.STREAM_SEA_HOST
 let remoteServerPort = process.env.STREAM_SEA_PORT || 443
-let remoteServerAppId = process.env.STREAM_SEA_APP_ID
-let remoteServerAppSecret = process.env.STREAM_SEA_APP_SECRET
+let remoteServerClientId = process.env.STREAM_SEA_CLIENT_ID
+let remoteServerClientSecret = process.env.STREAM_SEA_CLIENT_SECRET
 
 const requiredOptions = []
-if(!remoteServerAppId) {
-  requiredOptions.push('appId')
+if(!remoteServerClientId) {
+  requiredOptions.push('clientId')
 }
-if(!remoteServerAppSecret) {
-  requiredOptions.push('appSecret')
+if(!remoteServerClientSecret) {
+  requiredOptions.push('clientSecret')
 }
 if(!remoteServerHost) {
   requiredOptions.push('remoteServerHost')
 }
 
 const addServerConfigToArgs = (args:any) => {
-  return {appId: remoteServerAppId, appSecret: remoteServerAppSecret, remoteServerHost, remoteServerPort, ...args}
+  return {clientId: remoteServerClientId, clientSecret: remoteServerClientSecret, remoteServerHost, remoteServerPort, ...args}
 }
 
 yargs.scriptName("stream-sea")
   .usage('$0 <cmd> [args]')
-  .option('appId', {
+  .option('clientId', {
     type: 'string',
-    describe: 'your app id to authenticate on the remote'
+    describe: 'your client id to authenticate on the remote'
   })
-  .option('appSecret', {
+  .option('clientSecret', {
     type: 'string',
-    describe: 'your app secret to authenticate on the remote'
+    describe: 'your client secret to authenticate on the remote'
   })
   .option('remoteServerHost', {
     alias: 'h',
@@ -179,8 +179,8 @@ yargs.scriptName("stream-sea")
       args = addServerConfigToArgs(args)
       streamSea.createClient(args)
         .then((client) => {
-          console.log('APP Identifier:', client.id)
-          console.log('APP Secret:', client.secret)
+          console.log('Client Identifier:', client.id)
+          console.log('Client Secret:', client.secret)
         })
         .catch(errorHandler)
     }
@@ -218,8 +218,8 @@ yargs.scriptName("stream-sea")
       args = addServerConfigToArgs(args)
       streamSea.rotateClientSecret(args)
         .then((client) => {
-          console.log('APP Identifier:', client.id)
-          console.log('APP Secret:', client.secret)
+          console.log('Client Identifier:', client.id)
+          console.log('Client Secret:', client.secret)
         })
         .catch(errorHandler)
     }
