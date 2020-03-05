@@ -3,7 +3,7 @@
 
 import yargs from 'yargs'
 import * as streamSea from 'stream-sea-client'
-import { loadInlinePayload, formatJSONSchema } from './payloadUtil';
+import { loadInlinePayload, formatLongJSONSchema } from './payloadUtil';
 
 
 const INACTIVITY_TIMEOUT = 5000
@@ -86,7 +86,7 @@ yargs.scriptName("stream-sea")
     }, (args:any) => {
       // TODO support loading a definition from a file
       args = addServerConfigToArgs(args)
-      const schema = formatJSONSchema(args.stream, loadInlinePayload(args.schema))
+      const schema = formatLongJSONSchema(args.stream, loadInlinePayload(args.schema))
       args = {...args, ...schema}
       streamSea.defineStream(args)
         .then((response) => {
