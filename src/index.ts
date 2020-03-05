@@ -156,6 +156,11 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the name of the stream'
       }).demandOption(['stream'])
+      .option('fanout', {
+        alias: 'f',
+        type: 'boolean',
+        description: 'Fanout mode',
+      })
     }, async (args:any) => {
       args = addServerConfigToArgs(args);
       console.log(args);
