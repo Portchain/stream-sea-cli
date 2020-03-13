@@ -223,8 +223,35 @@ yargs.scriptName("stream-sea")
       args = addServerConfigToArgs(args)
       streamSea.rotateClientSecret(args)
         .then((client) => {
-          console.log('Client Identifier:', client.id)
+          console.log('Client Identifier:', client.givenId)
           console.log('Client Secret:', client.secret)
+        })
+        .catch(errorHandler)
+    }
+  )
+  .command('rotate-jwt', 'Rotate a client\'s JWT public key', (yargs) => {
+      yargs
+        .option('clientId', {
+          alias: 'c',
+          type: 'string',
+          describe: 'the id of the client to delete'
+        })
+        .option('jwtPublicKey', {
+          alias: 'k',
+          type: 'string',
+          describe: 'the JWT public key. Pass "null" to remove the JWT public key'
+        })
+        .demandOption(['clientId'])
+        .demandOption(['jwtPublicKey'])
+    }, async (args:any) => {
+      if (args.jwtPublicKey == 'null'){
+        args.jwtPublicKey = null
+      }
+      args = addServerConfigToArgs(args)
+      streamSea.rotateClientJwtPublicKey(args)
+        .then((response) => {
+          console.log('Client Identifier:', response.givenId)
+          console.log('JWT Public Key:', response.jwtPublicKey)
         })
         .catch(errorHandler)
     }
