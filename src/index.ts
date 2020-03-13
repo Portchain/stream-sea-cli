@@ -239,11 +239,14 @@ yargs.scriptName("stream-sea")
         .option('jwtPublicKey', {
           alias: 'k',
           type: 'string',
-          describe: 'the JWT public key'
+          describe: 'the JWT public key. Pass "null" to remove the JWT public key'
         })
         .demandOption(['clientId'])
         .demandOption(['jwtPublicKey'])
     }, async (args:any) => {
+      if (args.jwtPublicKey == 'null'){
+        args.jwtPublicKey = null
+      }
       args = addServerConfigToArgs(args)
       streamSea.rotateClientJwtPublicKey(args)
         .then((response) => {
