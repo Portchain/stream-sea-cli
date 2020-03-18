@@ -256,6 +256,20 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
+  .command('svv', 'get a schema version vector', 
+    (yargs) => {
+      yargs.option('schemas', {
+        alias: 's',
+        type: 'string',
+        describe: 'the name of the schemas, delimited by colons'
+      })
+    }, async (args: any) => {
+      const svv = await streamSea.getSchemaVersionsVector({
+        ...args,
+        schemaNames: args.schemas.split(':'),
+      })
+      console.log(svv.map((x: number | null) => `${x}`).join(':'))
+    })
   .demandOption(requiredOptions)
   .argv
 
