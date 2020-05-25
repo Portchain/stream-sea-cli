@@ -182,7 +182,18 @@ yargs.scriptName("stream-sea")
         .demandOption(['description'])
     }, (args:any) => {
       args = addServerConfigToArgs(args)
-      streamSea.createClient(args)
+
+      const payload = {
+        clientId: args.clientId,
+        clientSecret: args.clientSecret,
+        remoteServerHost: args.remoteServerHost,
+        remoteServerPort: args.remoteServerPort,
+        secure: args.secure,
+        targetClientId: args.appId,
+        targetClientDescription: args.description
+      }
+
+      streamSea.createClient(payload)
         .then((client) => {
           console.log('Client Identifier:', client.id)
           console.log('Client Secret:', client.secret)

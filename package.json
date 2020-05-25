@@ -26,8 +26,8 @@
   "devDependencies": {
     "@types/jest": "^24.0.17",
     "@types/node": "^12.12.5",
-    "jest": "^24.9.0",
-    "nodemon": "^1.19.4",
+    "jest": "^25.4.0",
+    "nodemon": "^2.0.3",
     "ts-jest": "^24.0.2",
     "ts-node": "^8.4.1",
     "tslint": "^6.0.0-beta0",
@@ -37,7 +37,7 @@
     "@types/request-promise-native": "1.0.17",
     "logacious": "0.4.0",
     "request-promise-native": "1.0.8",
-    "stream-sea-client": "3.3.0",
+    "stream-sea-client": "4.1.0",
     "ws": "7.2.0",
     "yargs": "15.0.2"
   }
