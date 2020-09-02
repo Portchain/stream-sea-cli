@@ -192,9 +192,10 @@ yargs.scriptName("stream-sea")
       .demandOption(['id', 'name', 'client'])
   }, (programArgs: any) => {
     const args = addServerConfigToArgs({
-      newJailId: programArgs.id,
-      newJailName: programArgs.name,
-      newClientId: programArgs.client,
+      targetJailId: programArgs.id,
+      targetJailName: programArgs.name,
+      targetClientId: programArgs.client,
+      ...programArgs
     })
     streamSea.createJail(args)
       .then((jailInfo) => {
@@ -215,6 +216,7 @@ yargs.scriptName("stream-sea")
     }, (programArgs: any) => {
       const args = addServerConfigToArgs({
         id: programArgs.id,
+        ...programArgs,
       })
       streamSea.deleteClient(args)
         .then(deletedJail => {
