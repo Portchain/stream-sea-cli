@@ -215,12 +215,12 @@ yargs.scriptName("stream-sea")
         .demandOption(['id'])
     }, (programArgs: any) => {
       const args = addServerConfigToArgs({
-        id: programArgs.id,
+        targetJailId: programArgs.id,
         ...programArgs,
       })
-      streamSea.deleteClient(args)
+      streamSea.deleteJail(args)
         .then(deletedJail => {
-          console.log(`Client ${deletedJail.id} deleted`)
+          console.log(`Jail ${deletedJail.id} deleted`)
         })
         .catch(errorHandler)
     }
