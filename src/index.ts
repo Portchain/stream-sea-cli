@@ -9,6 +9,7 @@ const errorHandler = (err:Error) => {
   console.error(err.message)
 }
 
+// This represents the data structure we get from yargs
 type ScriptArgs = {
   clientId: string,
   clientSecret: string,
@@ -36,12 +37,14 @@ const normalizeScriptArgs = (args: ScriptArgs): NormalizedScriptArgs => ({
 yargs.scriptName("stream-sea")
   .usage('$0 <cmd> [args]')
   .option('clientId', {
+    alias: 'i',
     type: 'string',
     describe: 'your client id to authenticate on the remote'
   })
   .option('clientSecret', {
+    alias: 'j',
     type: 'string',
-    describe: 'your client secret to authenticate on the remote'
+    describe: 'your client secret to authenticate on the remote',
   })
   .option('remoteServerHost', {
     alias: 'h',
