@@ -201,7 +201,7 @@ yargs.scriptName("stream-sea")
           if(deletedClient) {
             console.log(`Client ${deletedClient.id} deleted`)
           } else {
-            console.log(`ERROR: could not find client with id ${args.clientId}`)
+            console.log(`Failed`)
           }
         })
         .catch(errorHandler)
