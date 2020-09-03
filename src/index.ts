@@ -177,7 +177,7 @@ yargs.scriptName("stream-sea")
       }
       streamSea.createClient(args)
         .then((client) => {
-          console.log('Client Identifier:', client.id)
+          console.log('Client Identifier:', client.givenId)
           console.log('Client Secret:', client.secret)
         })
         .catch(errorHandler)
