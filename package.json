@@ -16,7 +16,8 @@
     "prepublish": "npm run clean && npm run build && npm run inject-shebang"
   },
   "bin": {
-    "ssc": "./bin/index.js"
+    "ssc": "./bin/index.js",
+    "stream-sea-cli": "./bin/index.js"
   },
   "repository": {
     "type": "git",
