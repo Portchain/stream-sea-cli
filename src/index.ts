@@ -42,7 +42,7 @@ yargs.scriptName("stream-sea")
     describe: 'your client id to authenticate on the remote'
   })
   .option('clientSecret', {
-    alias: 'j',
+    alias: 'q',
     type: 'string',
     describe: 'your client secret to authenticate on the remote',
   })
