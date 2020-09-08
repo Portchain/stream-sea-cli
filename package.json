@@ -2,7 +2,7 @@
   "name": "stream-sea-cli",
   "version": "1.0.0",
   "description": "CLI for stream-sea",
-  "main": "bin/stream-sea-cli",
+  "main": "lib/index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "test": "jest --runInBand --forceExit --detectOpenHandles --verbose false",
