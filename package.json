@@ -2,21 +2,21 @@
   "name": "stream-sea-cli",
   "version": "1.0.0",
   "description": "CLI for stream-sea",
-  "main": "index.js",
+  "main": "bin/stream-sea-cli",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "test": "jest --runInBand --forceExit --detectOpenHandles --verbose false",
     "quicktest": "jest",
     "build": "tsc",
-    "start": "NODE_ENV=production node bin/index.js",
-    "clean": "rm -rf bin",
-    "deepclean": "rm -rf bin node_modules package-lock.json",
+    "start": "NODE_ENV=production node lib/index.js",
+    "clean": "rm -rf lib",
+    "deepclean": "rm -rf lib node_modules package-lock.json",
     "precommit": "tslint",
     "prepublish": "npm run clean && npm run build"
   },
   "bin": {
-    "ssc": "./index.js",
-    "stream-sea-cli": "./index.js"
+    "ssc": "./bin/stream-sea-cli",
+    "stream-sea-cli": "./bin/stream-sea-cli"
   },
   "repository": {
     "type": "git",

@@ -28,6 +28,6 @@
       "es2015",
       "es2016"
     ],
-    "outDir": "bin/"
+    "outDir": "lib/"
   }
 }
