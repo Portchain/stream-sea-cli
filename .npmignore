@@ -1,0 +1,8 @@
+**/*.test.ts
+**/*.test.js
+**/*.test.js.map
+jest-setup.js
+jest.config.js
+TestSchemaDefinition.json
+tsconfig.json
+tslint.json
