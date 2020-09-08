@@ -31,7 +31,7 @@ const normalizeScriptArgs = (args: ScriptArgs): NormalizedScriptArgs => ({
   clientSecret: args.clientSecret,
   remoteServerHost: args.remoteServerHost,
   remoteServerPort: args.remoteServerPort || '443',
-  secure: !!args.secure,
+  secure: args.secure === undefined ? false : args.secure,
 })
 
 yargs.scriptName("stream-sea")
@@ -270,4 +270,3 @@ yargs.scriptName("stream-sea")
       console.log(svv.map((x: number | null) => `${x}`).join(':'))
     })
   .argv
-
