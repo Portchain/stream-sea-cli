@@ -3,59 +3,48 @@
 
 import yargs from 'yargs'
 import * as streamSea from 'stream-sea-client'
-import { loadInlinePayload, formatLongJSONSchema } from './payloadUtil';
-
-
-const INACTIVITY_TIMEOUT = 5000
-let timeout:any = null;
-const postponeTimeout = () => {
-  clearRunningTimeout()
-  timeout = setTimeout(() => {
-    console.error(`ERROR: timeout expired. No activity for more than ${INACTIVITY_TIMEOUT}ms`)
-    process.exit(1)
-  }, INACTIVITY_TIMEOUT)
-}
-
-const clearRunningTimeout = () => {
-  if(timeout) {
-    clearTimeout(timeout)
-    timeout = null
-  }
-}
+import { loadInlinePayload, formatLongJSONSchema } from './payload-util';
 
 const errorHandler = (err:Error) => {
-  console.log(err.message)
+  console.error(err.message)
 }
 
-let remoteServerHost = process.env.STREAM_SEA_HOST
-let remoteServerPort = process.env.STREAM_SEA_PORT || 443
-let remoteServerClientId = process.env.STREAM_SEA_CLIENT_ID
-let remoteServerClientSecret = process.env.STREAM_SEA_CLIENT_SECRET
-
-const requiredOptions = []
-if(!remoteServerClientId) {
-  requiredOptions.push('clientId')
-}
-if(!remoteServerClientSecret) {
-  requiredOptions.push('clientSecret')
-}
-if(!remoteServerHost) {
-  requiredOptions.push('remoteServerHost')
+// This represents the data structure we get from yargs
+type ScriptArgs = {
+  clientId: string,
+  clientSecret: string,
+  remoteServerHost: string,
+  remoteServerPort?: string,
+  secure?: boolean,
 }
 
-const addServerConfigToArgs = (args:any) => {
-  return {clientId: remoteServerClientId, clientSecret: remoteServerClientSecret, remoteServerHost, remoteServerPort, ...args}
+type NormalizedScriptArgs = {
+  clientId: string,
+  clientSecret: string,
+  remoteServerHost: string,
+  remoteServerPort: string,
+  secure: boolean,
 }
+
+const normalizeScriptArgs = (args: ScriptArgs): NormalizedScriptArgs => ({
+  clientId: args.clientId,
+  clientSecret: args.clientSecret,
+  remoteServerHost: args.remoteServerHost,
+  remoteServerPort: args.remoteServerPort || '443',
+  secure: args.secure === undefined ? false : args.secure,
+})
 
 yargs.scriptName("stream-sea")
   .usage('$0 <cmd> [args]')
   .option('clientId', {
+    alias: 'i',
     type: 'string',
     describe: 'your client id to authenticate on the remote'
   })
   .option('clientSecret', {
+    alias: 'q',
     type: 'string',
-    describe: 'your client secret to authenticate on the remote'
+    describe: 'your client secret to authenticate on the remote',
   })
   .option('remoteServerHost', {
     alias: 'h',
@@ -72,6 +61,7 @@ yargs.scriptName("stream-sea")
     type: 'boolean',
     description: 'Use TLS'
   })
+  .demandOption(['clientId', 'clientSecret', 'remoteServerHost'])
   .command('define', '(re)define a stream data schema', 
     (yargs) => {
       yargs.option('stream', {
@@ -83,12 +73,13 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the definition of the schema. This should be a path to a JSON file or a JSON string.'
       }).demandOption(['stream', 'schema'])
-    }, (args:any) => {
-      // TODO support loading a definition from a file
-      args = addServerConfigToArgs(args)
-      const schema = formatLongJSONSchema(args.stream, loadInlinePayload(args.schema))
-      args = {...args, ...schema}
-      streamSea.defineStream(args)
+    }, (commandArgs: ScriptArgs & { stream: string, schema: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        stream: commandArgs.stream,
+      }
+      const schema = formatLongJSONSchema(commandArgs.stream, loadInlinePayload(commandArgs.schema))
+      streamSea.defineStream({...args, ...schema})
         .then((response) => {
           console.log(JSON.stringify(response, null, 2))
         })
@@ -102,8 +93,11 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the name of the stream'
       }).demandOption(['stream'])
-    }, (args:any) => {
-      args = addServerConfigToArgs(args)
+    }, (commandArgs: ScriptArgs & { stream: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        stream: commandArgs.stream
+      }
       streamSea.describeStream(args)
         .then((schema) => {
           console.log(JSON.stringify(schema, null, 2))
@@ -121,32 +115,18 @@ yargs.scriptName("stream-sea")
         alias: 'd',
         type: 'string',
         describe: 'the path to a JSON file or the JSON payload to publish. You can also omit this parameter and send pipe data to the command through stdin'
-      }).demandOption(['stream'])
+      }).demandOption(['stream', 'data'])
     }, 
-    (args:any) => {
-      let data = ''
-      if(args.data) {
-        args.payload = loadInlinePayload(args.data)
-        args = addServerConfigToArgs(args)
-        streamSea.publish(args).then(() => {
-          console.log('Data has been published to the remote server')
-        }).catch(errorHandler)
-        return;
+    (commandArgs: ScriptArgs & {stream: string, data: string}) => {
+      const payload = loadInlinePayload(commandArgs.data)
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        stream: commandArgs.stream,
+        payload,
       }
-      postponeTimeout()
-      process.stdin.on('data', (buff:Buffer) => {
-        postponeTimeout()
-        data += buff.toString('utf8')
-      })
-      process.stdin.on('end', (buff:Buffer) => {
-        clearRunningTimeout()
-        args.payload = JSON.parse(data)
-        args = addServerConfigToArgs(args)
-        streamSea.publish(args).then(() => {
-          console.log('Data has been published to the remote server')
-        }).catch(errorHandler)
-      })
-      process.stdin.on('error', errorHandler)
+      streamSea.publish(args).then(() => {
+        console.log('Data has been published to the remote server')
+      }).catch(errorHandler)
     }
   )
   .command('subscribe', 'Subscribe to a stream and print outputs to stdout', 
@@ -155,36 +135,49 @@ yargs.scriptName("stream-sea")
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).demandOption(['stream'])
+      })
       .option('fanout', {
         alias: 'f',
         type: 'boolean',
         description: 'Fanout mode',
       })
-    }, async (args:any) => {
-      args = addServerConfigToArgs(args);
-      console.log(args);
+      .demandOption(['stream'])
+    }, async (commandArgs: ScriptArgs & { stream: string, fanout?: boolean}) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        stream: commandArgs.stream,
+        fanout: commandArgs.fanout,
+      }
       const subscription = await streamSea.subscribe(args)
-      subscription.on('message', (msg:any) => {
+      subscription.on('message', (msg: any) => {
         console.log(JSON.stringify(msg))
       })
-      subscription.on('error', (err:any) => console.error(err))
-      subscription.on('close', () =>console.log('Connection closed'))
+      subscription.on('error', (err: any) => console.error(err))
+      subscription.on('close', () => console.log('Connection closed'))
     }
   )
   .command('create-client', 'Create a new client', (yargs) => {
-      yargs
-        .option('description', {
-          alias: 'd',
-          type: 'string',
-          describe: 'the name or description of the client'
-        })
-        .demandOption(['description'])
-    }, (args:any) => {
-      args = addServerConfigToArgs(args)
+    yargs
+      .option('targetClientId', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the id of the client to delete'
+      })
+      .option('targetClientDescription', {
+        alias: 'd',
+        type: 'string',
+        describe: 'the name or description of the client'
+      })
+      .demandOption(['targetClientId', 'targetClientDescription'])
+    }, (commandArgs: ScriptArgs & { targetClientId: string, targetClientDescription: string}) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        targetClientId: commandArgs.targetClientId,
+        targetClientDescription: commandArgs.targetClientDescription,
+      }
       streamSea.createClient(args)
         .then((client) => {
-          console.log('Client Identifier:', client.id)
+          console.log('Client Identifier:', client.givenId)
           console.log('Client Secret:', client.secret)
         })
         .catch(errorHandler)
@@ -192,20 +185,23 @@ yargs.scriptName("stream-sea")
   )
   .command('delete-client', 'Delete an existing', (yargs) => {
       yargs
-        .option('clientId', {
+        .option('targetClientId', {
           alias: 'c',
           type: 'string',
           describe: 'the id of the client to delete'
         })
-        .demandOption(['clientId'])
-    }, (args:any) => {
-      args = addServerConfigToArgs(args)
+        .demandOption(['targetClientId'])
+    }, (commandArgs: ScriptArgs & { targetClientId: string}) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        targetClientId: commandArgs.targetClientId,
+      }
       streamSea.deleteClient(args)
         .then(deletedClient => {
           if(deletedClient) {
             console.log(`Client ${deletedClient.id} deleted`)
           } else {
-            console.log(`ERROR: could not find client with id ${args.clientId}`)
+            console.log(`Failed`)
           }
         })
         .catch(errorHandler)
@@ -213,14 +209,17 @@ yargs.scriptName("stream-sea")
   )
   .command('rotate-client-secret', 'Rotate a client\'s secret', (yargs) => {
       yargs
-        .option('clientId', {
+        .option('targetClientId', {
           alias: 'c',
           type: 'string',
           describe: 'the id of the client to delete'
         })
-        .demandOption(['clientId'])
-    }, async (args:any) => {
-      args = addServerConfigToArgs(args)
+        .demandOption(['targetClientId'])
+    }, async (commandArgs: ScriptArgs & { targetClientId: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        targetClientId: commandArgs.targetClientId,
+      }
       streamSea.rotateClientSecret(args)
         .then((client) => {
           console.log('Client Identifier:', client.givenId)
@@ -231,7 +230,7 @@ yargs.scriptName("stream-sea")
   )
   .command('rotate-jwt', 'Rotate a client\'s JWT public key', (yargs) => {
       yargs
-        .option('clientId', {
+        .option('targetClientId', {
           alias: 'c',
           type: 'string',
           describe: 'the id of the client to delete'
@@ -241,13 +240,12 @@ yargs.scriptName("stream-sea")
           type: 'string',
           describe: 'the JWT public key. Pass "null" to remove the JWT public key'
         })
-        .demandOption(['clientId'])
-        .demandOption(['jwtPublicKey'])
-    }, async (args:any) => {
-      if (args.jwtPublicKey == 'null'){
-        args.jwtPublicKey = null
+        .demandOption(['targetClientId', 'jwtPublicKey'])
+    }, async (commandArgs: ScriptArgs & { targetClientId: string, jwtPublicKey: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        jwtPublicKey: commandArgs.jwtPublicKey === 'null' ? null : commandArgs.jwtPublicKey,
       }
-      args = addServerConfigToArgs(args)
       streamSea.rotateClientJwtPublicKey(args)
         .then((response) => {
           console.log('Client Identifier:', response.givenId)
@@ -263,13 +261,12 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the name of the schemas, delimited by colons'
       })
-    }, async (args: any) => {
-      const svv = await streamSea.getSchemaVersionsVector({
-        ...args,
-        schemaNames: args.schemas.split(':'),
-      })
+    }, async (commandArgs: ScriptArgs & {schemas: string}) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        schemaNames: commandArgs.schemas.split(':'),
+      }
+      const svv = await streamSea.getSchemaVersionsVector(args)
       console.log(svv.map((x: number | null) => `${x}`).join(':'))
     })
-  .demandOption(requiredOptions)
   .argv
-

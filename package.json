@@ -1,6 +1,6 @@
 {
   "name": "stream-sea-cli",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "CLI for stream-sea",
   "main": "lib/index.js",
   "scripts": {
@@ -42,7 +42,7 @@
     "@types/request-promise-native": "1.0.17",
     "logacious": "0.4.0",
     "request-promise-native": "1.0.8",
-    "stream-sea-client": "3.3.0",
+    "stream-sea-client": "4.2.0",
     "ws": "7.2.0",
     "yargs": "15.0.2"
   }

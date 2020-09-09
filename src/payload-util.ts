@@ -5,7 +5,10 @@ import { SchemaDefinition, SchemaField, FieldType } from 'stream-sea-client/dist
 export const isPath = (path:string):boolean => /^(\.?\.?\/|[\d?\w])/ig.test(path)
 export const isJSON = (json:string):boolean => /^(({.*})|(\[.*\]))$/sg.test(json)
 
-export const loadInlinePayload = (dataString:string) => {
+/**
+ * @param dataString JSON string or path to JSON file
+ */
+export const loadInlinePayload = (dataString: string) => {
   if(!dataString) {
     throw new Error('Data argument should not be empty')
   }
