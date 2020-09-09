@@ -1,6 +1,6 @@
 
 
-import {isPath, isJSON} from '../payloadUtil'
+import {isPath, isJSON} from '../payload-util'
 
 test("isPath('./foo/bar')", () => {
   expect(isPath('./foo/bar')).toBeTruthy()
