@@ -156,6 +156,59 @@ yargs.scriptName("stream-sea")
       subscription.on('close', () => console.log('Connection closed'))
     }
   )
+  .command('create-jail', 'Create a new jail', (yargs) => {
+    yargs
+      .option('id', {
+        alias: 'j',
+        type: 'string',
+        describe: 'the ID of the new jail',
+      })
+      .option('name', {
+        alias: 'n',
+        type: 'string',
+        describe: 'the name of the new jail',
+      })
+      .option('client', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the ID of the client to create within the new jail',
+      })
+      .demandOption(['id', 'name', 'client'])
+  }, (commandArgs: ScriptArgs & { id: string, name: string, client: string}) => {
+    const args = {
+      ...normalizeScriptArgs(commandArgs),
+      targetJailId: commandArgs.id,
+      targetJailName: commandArgs.name,
+      targetClientId: commandArgs.client,
+    }
+    streamSea.createJail(args)
+      .then((jailInfo) => {
+        console.log('Jail Identifier:', jailInfo.newJailId)
+        console.log('Client Identifier:', jailInfo.newClientId)
+        console.log('Client Secret:', jailInfo.newClientSecret)
+      })
+      .catch(errorHandler)
+  })
+  .command('delete-jail', 'Delete an existing jail', (yargs) => {
+      yargs
+        .option('id', {
+          alias: 'j',
+          type: 'string',
+          describe: 'the ID of the jail to delete',
+        })
+        .demandOption(['id'])
+    }, (commandArgs: ScriptArgs & { id: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        targetJailId: commandArgs.id,
+      }
+      streamSea.deleteJail(args)
+        .then(deletedJail => {
+          console.log(`Jail ${deletedJail.id} deleted`)
+        })
+        .catch(errorHandler)
+    }
+  )
   .command('create-client', 'Create a new client', (yargs) => {
     yargs
       .option('targetClientId', {
