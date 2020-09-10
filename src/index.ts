@@ -163,24 +163,24 @@ yargs.scriptName("stream-sea")
         type: 'string',
         describe: 'the ID of the new jail',
       })
-      .option('client', {
-        alias: 'c',
-        type: 'string',
-        describe: 'the ID of the client to create within the new jail',
-      })
       .option('name', {
         alias: 'n',
         type: 'string',
         describe: 'the name of the new jail',
       })
+      .option('client', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the ID of the client to create within the new jail',
+      })
       .demandOption(['id', 'name', 'client'])
-  }, (programArgs: any) => {
-    const args = addServerConfigToArgs({
-      targetJailId: programArgs.id,
-      targetJailName: programArgs.name,
-      targetClientId: programArgs.client,
-      ...programArgs
-    })
+  }, (commandArgs: ScriptArgs & { id: string, name: string, client: string}) => {
+    const args = {
+      ...normalizeScriptArgs(commandArgs),
+      targetJailId: commandArgs.id,
+      targetJailName: commandArgs.name,
+      targetClientId: commandArgs.client,
+    }
     streamSea.createJail(args)
       .then((jailInfo) => {
         console.log('Jail Identifier:', jailInfo.newJailId)
@@ -197,11 +197,11 @@ yargs.scriptName("stream-sea")
           describe: 'the ID of the jail to delete',
         })
         .demandOption(['id'])
-    }, (programArgs: any) => {
-      const args = addServerConfigToArgs({
-        targetJailId: programArgs.id,
-        ...programArgs,
-      })
+    }, (commandArgs: ScriptArgs & { id: string }) => {
+      const args = {
+        ...normalizeScriptArgs(commandArgs),
+        targetJailId: commandArgs.id,
+      }
       streamSea.deleteJail(args)
         .then(deletedJail => {
           console.log(`Jail ${deletedJail.id} deleted`)
