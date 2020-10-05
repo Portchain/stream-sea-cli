@@ -1,6 +1,6 @@
 {
   "name": "stream-sea-cli",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "CLI for stream-sea",
   "main": "lib/index.js",
   "scripts": {
