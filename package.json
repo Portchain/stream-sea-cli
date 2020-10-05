@@ -40,7 +40,9 @@
   },
   "dependencies": {
     "@types/request-promise-native": "1.0.17",
+    "jsonwebtoken": "8.5.1",
     "logacious": "0.4.0",
+    "keypair": "1.0.1",
     "request-promise-native": "1.0.8",
     "stream-sea-client": "4.3.0",
     "ws": "7.2.0",

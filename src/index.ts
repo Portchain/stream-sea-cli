@@ -1,16 +1,16 @@
-
-//#!/usr/bin/env node
-
 import yargs from 'yargs'
 import * as streamSea from 'stream-sea-client'
-import { loadInlinePayload, formatLongJSONSchema } from './payload-util';
+import { loadInlinePayload, formatLongJSONSchema } from './message-utils';
+import { generateKeypair, parsePayload } from './jwt-utils';
+const jwt = require('jsonwebtoken')
+const fs = require('fs')
 
 const errorHandler = (err:Error) => {
   console.error(err.message)
 }
 
-// This represents the data structure we get from yargs
-type ScriptArgs = {
+// This represents the raw args we get from yargs
+type ApiArgs = {
   clientId: string,
   clientSecret: string,
   remoteServerHost: string,
@@ -18,7 +18,7 @@ type ScriptArgs = {
   secure?: boolean,
 }
 
-type NormalizedScriptArgs = {
+type NormalizedApiArgs = {
   clientId: string,
   clientSecret: string,
   remoteServerHost: string,
@@ -26,7 +26,7 @@ type NormalizedScriptArgs = {
   secure: boolean,
 }
 
-const normalizeScriptArgs = (args: ScriptArgs): NormalizedScriptArgs => ({
+const normalizeApiArgs = (args: ApiArgs): NormalizedApiArgs => ({
   clientId: args.clientId,
   clientSecret: args.clientSecret,
   remoteServerHost: args.remoteServerHost,
@@ -34,48 +34,100 @@ const normalizeScriptArgs = (args: ScriptArgs): NormalizedScriptArgs => ({
   secure: args.secure === undefined ? false : args.secure,
 })
 
-yargs.scriptName("stream-sea")
+const requireApiArgs = (y: yargs.Argv<{}>) => y.option('clientId', {
+  alias: 'i',
+  type: 'string',
+  describe: 'your client id to authenticate on the remote'
+})
+.option('clientSecret', {
+  alias: 'q',
+  type: 'string',
+  describe: 'your client secret to authenticate on the remote',
+})
+.option('remoteServerHost', {
+  alias: 'h',
+  type: 'string',
+  describe: 'the hostname or IP address of the remote server'
+})
+.option('remoteServerPort', {
+  alias: 'p',
+  type: 'string',
+  describe: 'the remote server port (defaults to 443)'
+})
+.option('secure', {
+  alias: 't',
+  type: 'boolean',
+  description: 'Use TLS'
+})
+.demandOption(['clientId', 'clientSecret', 'remoteServerHost'])
+
+yargs.scriptName("stream-sea-cli")
   .usage('$0 <cmd> [args]')
-  .option('clientId', {
-    alias: 'i',
-    type: 'string',
-    describe: 'your client id to authenticate on the remote'
+  // Begin auxiliary methods
+  .command('sign-jwt', 'sign a JWT', yargs => {
+    yargs.option('jwtSecret', {
+      alias: 's',
+      type: 'string',
+      describe: 'JWT secret'
+    })
+    .option('jwtPrivateKey', {
+      alias: 'k',
+      type: 'string',
+      describe: 'JWT private key'
+    })
+    .option('payload', {
+      alias: 'p',
+      type: 'string',
+      describe: 'payload'
+    })
+  }, (argv: { payload?: string, jwtPrivateKey?: string, jwtSecret?: string }) => {
+    const payload = parsePayload(argv.payload)
+    
+    let jwtSerialized
+    if (argv.jwtSecret && argv.jwtPrivateKey){
+      console.error('Cannot use both JWT secret and JWT private key. Choose one')
+      process.exit(1)
+    } else if (argv.jwtSecret){
+      jwtSerialized = jwt.sign(payload, argv.jwtSecret)
+    } else if (argv.jwtPrivateKey){
+      jwtSerialized = jwt.sign(payload, argv.jwtPrivateKey, { algorithm: 'RS512' })
+    } else {
+      console.error('Must provide either JWT secret or JWT private key')
+      process.exit(1)
+    }
+
+    console.log(jwtSerialized)
   })
-  .option('clientSecret', {
-    alias: 'q',
-    type: 'string',
-    describe: 'your client secret to authenticate on the remote',
+  .command('generate-keypair', 'Generate a keypair', yargs => {
+    yargs.option('filePrefix', {
+      alias: 'o',
+      type: 'string',
+      describe: 'Prefix for output file names'
+    })
+  }, (argv: { filePrefix?: string}) => {
+    console.log('generating...')
+    const {private: privateKey, public: publicKey} = generateKeypair()
+    fs.writeSync(fs.openSync(`${argv.filePrefix || ''}private.pem`, 'w'), privateKey)
+    fs.writeSync(fs.openSync(`${argv.filePrefix || ''}public.pem`, 'w'), publicKey)
   })
-  .option('remoteServerHost', {
-    alias: 'h',
-    type: 'string',
-    describe: 'the hostname or IP address of the remote server'
-  })
-  .option('remoteServerPort', {
-    alias: 'p',
-    type: 'string',
-    describe: 'the remote server port (defaults to 443)'
-  })
-  .option('secure', {
-    alias: 't',
-    type: 'boolean',
-    description: 'Use TLS'
-  })
-  .demandOption(['clientId', 'clientSecret', 'remoteServerHost'])
+  // Begin API methods
   .command('define', '(re)define a stream data schema', 
     (yargs) => {
-      yargs.option('stream', {
+      requireApiArgs(yargs)
+      .option('stream', {
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).option('schema', {
+      })
+      .option('schema', {
         alias: 'm',
         type: 'string',
         describe: 'the definition of the schema. This should be a path to a JSON file or a JSON string.'
-      }).demandOption(['stream', 'schema'])
-    }, (commandArgs: ScriptArgs & { stream: string, schema: string }) => {
+      })
+      .demandOption(['stream', 'schema'])
+    }, (commandArgs: ApiArgs & { stream: string, schema: string }) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         stream: commandArgs.stream,
       }
       const schema = formatLongJSONSchema(commandArgs.stream, loadInlinePayload(commandArgs.schema))
@@ -88,14 +140,16 @@ yargs.scriptName("stream-sea")
   )
   .command('describe', 'fetch the latest data schema for a stream', 
     (yargs) => {
-      yargs.option('stream', {
+      requireApiArgs(yargs)
+      .option('stream', {
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).demandOption(['stream'])
-    }, (commandArgs: ScriptArgs & { stream: string }) => {
+      })
+      .demandOption(['stream'])
+    }, (commandArgs: ApiArgs & { stream: string }) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         stream: commandArgs.stream
       }
       streamSea.describeStream(args)
@@ -107,20 +161,23 @@ yargs.scriptName("stream-sea")
   )
   .command('publish', 'Publish messages to a stream', 
     (yargs) => {
-      yargs.option('stream', {
+      requireApiArgs(yargs)
+      .option('stream', {
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
-      }).option('data', {
+      })
+      .option('data', {
         alias: 'd',
         type: 'string',
         describe: 'the path to a JSON file or the JSON payload to publish. You can also omit this parameter and send pipe data to the command through stdin'
-      }).demandOption(['stream', 'data'])
+      })
+      .demandOption(['stream', 'data'])
     }, 
-    (commandArgs: ScriptArgs & {stream: string, data: string}) => {
+    (commandArgs: ApiArgs & {stream: string, data: string}) => {
       const payload = loadInlinePayload(commandArgs.data)
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         stream: commandArgs.stream,
         payload,
       }
@@ -131,7 +188,8 @@ yargs.scriptName("stream-sea")
   )
   .command('subscribe', 'Subscribe to a stream and print outputs to stdout', 
     (yargs) => {
-      yargs.option('stream', {
+      requireApiArgs(yargs)
+      .option('stream', {
         alias: 's',
         type: 'string',
         describe: 'the name of the stream'
@@ -142,9 +200,9 @@ yargs.scriptName("stream-sea")
         description: 'Fanout mode',
       })
       .demandOption(['stream'])
-    }, async (commandArgs: ScriptArgs & { stream: string, fanout?: boolean}) => {
+    }, async (commandArgs: ApiArgs & { stream: string, fanout?: boolean}) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         stream: commandArgs.stream,
         fanout: commandArgs.fanout,
       }
@@ -156,8 +214,9 @@ yargs.scriptName("stream-sea")
       subscription.on('close', () => console.log('Connection closed'))
     }
   )
-  .command('create-jail', 'Create a new jail', (yargs) => {
-    yargs
+  .command('create-jail', 'Create a new jail',
+    (yargs) => {
+      requireApiArgs(yargs)
       .option('id', {
         alias: 'j',
         type: 'string',
@@ -174,32 +233,34 @@ yargs.scriptName("stream-sea")
         describe: 'the ID of the client to create within the new jail',
       })
       .demandOption(['id', 'name', 'client'])
-  }, (commandArgs: ScriptArgs & { id: string, name: string, client: string}) => {
-    const args = {
-      ...normalizeScriptArgs(commandArgs),
-      targetJailId: commandArgs.id,
-      targetJailName: commandArgs.name,
-      targetClientId: commandArgs.client,
-    }
-    streamSea.createJail(args)
-      .then((jailInfo) => {
-        console.log('Jail Identifier:', jailInfo.newJailId)
-        console.log('Client Identifier:', jailInfo.newClientId)
-        console.log('Client Secret:', jailInfo.newClientSecret)
-      })
-      .catch(errorHandler)
-  })
-  .command('delete-jail', 'Delete an existing jail', (yargs) => {
-      yargs
-        .option('id', {
-          alias: 'j',
-          type: 'string',
-          describe: 'the ID of the jail to delete',
-        })
-        .demandOption(['id'])
-    }, (commandArgs: ScriptArgs & { id: string }) => {
+    }, (commandArgs: ApiArgs & { id: string, name: string, client: string}) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
+        targetJailId: commandArgs.id,
+        targetJailName: commandArgs.name,
+        targetClientId: commandArgs.client,
+      }
+      streamSea.createJail(args)
+        .then((jailInfo) => {
+          console.log('Jail Identifier:', jailInfo.newJailId)
+          console.log('Client Identifier:', jailInfo.newClientId)
+          console.log('Client Secret:', jailInfo.newClientSecret)
+        })
+        .catch(errorHandler)
+    }
+  )
+  .command('delete-jail', 'Delete an existing jail',
+    (yargs) => {
+      requireApiArgs(yargs)
+      .option('id', {
+        alias: 'j',
+        type: 'string',
+        describe: 'the ID of the jail to delete',
+      })
+      .demandOption(['id'])
+    }, (commandArgs: ApiArgs & { id: string }) => {
+      const args = {
+        ...normalizeApiArgs(commandArgs),
         targetJailId: commandArgs.id,
       }
       streamSea.deleteJail(args)
@@ -209,8 +270,9 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
-  .command('create-client', 'Create a new client', (yargs) => {
-    yargs
+  .command('create-client', 'Create a new client',
+    (yargs) => {
+      requireApiArgs(yargs)
       .option('targetClientId', {
         alias: 'c',
         type: 'string',
@@ -222,9 +284,9 @@ yargs.scriptName("stream-sea")
         describe: 'the name or description of the client'
       })
       .demandOption(['targetClientId', 'targetClientDescription'])
-    }, (commandArgs: ScriptArgs & { targetClientId: string, targetClientDescription: string}) => {
+    }, (commandArgs: ApiArgs & { targetClientId: string, targetClientDescription: string}) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         targetClientId: commandArgs.targetClientId,
         targetClientDescription: commandArgs.targetClientDescription,
       }
@@ -236,17 +298,18 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
-  .command('delete-client', 'Delete an existing', (yargs) => {
-      yargs
-        .option('targetClientId', {
-          alias: 'c',
-          type: 'string',
-          describe: 'the id of the client to delete'
-        })
-        .demandOption(['targetClientId'])
-    }, (commandArgs: ScriptArgs & { targetClientId: string}) => {
+  .command('delete-client', 'Delete an existing',
+    (yargs) => {
+      requireApiArgs(yargs)
+      .option('targetClientId', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the id of the client to delete'
+      })
+      .demandOption(['targetClientId'])
+    }, (commandArgs: ApiArgs & { targetClientId: string}) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         targetClientId: commandArgs.targetClientId,
       }
       streamSea.deleteClient(args)
@@ -260,17 +323,18 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
-  .command('rotate-client-secret', 'Rotate a client\'s secret', (yargs) => {
-      yargs
-        .option('targetClientId', {
-          alias: 'c',
-          type: 'string',
-          describe: 'the id of the client to delete'
-        })
-        .demandOption(['targetClientId'])
-    }, async (commandArgs: ScriptArgs & { targetClientId: string }) => {
+  .command('rotate-client-secret', 'Rotate a client\'s secret',
+    (yargs) => {
+      requireApiArgs(yargs)
+      .option('targetClientId', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the id of the client to delete'
+      })
+      .demandOption(['targetClientId'])
+    }, async (commandArgs: ApiArgs & { targetClientId: string }) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         targetClientId: commandArgs.targetClientId,
       }
       streamSea.rotateClientSecret(args)
@@ -281,22 +345,23 @@ yargs.scriptName("stream-sea")
         .catch(errorHandler)
     }
   )
-  .command('rotate-jwt', 'Rotate a client\'s JWT public key', (yargs) => {
-      yargs
-        .option('targetClientId', {
-          alias: 'c',
-          type: 'string',
-          describe: 'the id of the client to delete'
-        })
-        .option('jwtPublicKey', {
-          alias: 'k',
-          type: 'string',
-          describe: 'the JWT public key. Pass "null" to remove the JWT public key'
-        })
-        .demandOption(['targetClientId', 'jwtPublicKey'])
-    }, async (commandArgs: ScriptArgs & { targetClientId: string, jwtPublicKey: string }) => {
+  .command('rotate-jwt', 'Rotate a client\'s JWT public key',
+    (yargs) => {
+      requireApiArgs(yargs)
+      .option('targetClientId', {
+        alias: 'c',
+        type: 'string',
+        describe: 'the id of the client to delete'
+      })
+      .option('jwtPublicKey', {
+        alias: 'k',
+        type: 'string',
+        describe: 'the JWT public key. Pass "null" to remove the JWT public key'
+      })
+      .demandOption(['targetClientId', 'jwtPublicKey'])
+    }, async (commandArgs: ApiArgs & { targetClientId: string, jwtPublicKey: string }) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         jwtPublicKey: commandArgs.jwtPublicKey === 'null' ? null : commandArgs.jwtPublicKey,
       }
       streamSea.rotateClientJwtPublicKey(args)
@@ -309,17 +374,19 @@ yargs.scriptName("stream-sea")
   )
   .command('svv', 'get a schema version vector', 
     (yargs) => {
-      yargs.option('schemas', {
+      requireApiArgs(yargs)
+      .option('schemas', {
         alias: 's',
         type: 'string',
         describe: 'the name of the schemas, delimited by colons'
       })
-    }, async (commandArgs: ScriptArgs & {schemas: string}) => {
+    }, async (commandArgs: ApiArgs & {schemas: string}) => {
       const args = {
-        ...normalizeScriptArgs(commandArgs),
+        ...normalizeApiArgs(commandArgs),
         schemaNames: commandArgs.schemas.split(':'),
       }
       const svv = await streamSea.getSchemaVersionsVector(args)
       console.log(svv.map((x: number | null) => `${x}`).join(':'))
-    })
+    }
+  )
   .argv
