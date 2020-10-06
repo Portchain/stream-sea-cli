@@ -111,7 +111,7 @@ yargs.scriptName("stream-sea-cli")
     fs.writeSync(fs.openSync(`${argv.filePrefix || ''}public.pem`, 'w'), publicKey)
   })
   // Begin API methods
-  .command('define', '(re)define a stream data schema', 
+  .command('define', '(Re)define a stream data schema', 
     (yargs) => {
       requireApiArgs(yargs)
       .option('stream', {
@@ -138,7 +138,7 @@ yargs.scriptName("stream-sea-cli")
         .catch(errorHandler)
     }
   )
-  .command('describe', 'fetch the latest data schema for a stream', 
+  .command('describe', 'Fetch the latest data schema for a stream', 
     (yargs) => {
       requireApiArgs(yargs)
       .option('stream', {
@@ -298,7 +298,7 @@ yargs.scriptName("stream-sea-cli")
         .catch(errorHandler)
     }
   )
-  .command('delete-client', 'Delete an existing',
+  .command('delete-client', 'Delete an existing client',
     (yargs) => {
       requireApiArgs(yargs)
       .option('targetClientId', {
@@ -372,7 +372,7 @@ yargs.scriptName("stream-sea-cli")
         .catch(errorHandler)
     }
   )
-  .command('svv', 'get a schema version vector', 
+  .command('svv', 'Get a schema version vector', 
     (yargs) => {
       requireApiArgs(yargs)
       .option('schemas', {
